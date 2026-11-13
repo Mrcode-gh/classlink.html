@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090909">
+<title>Fironic Browser V1</title>
+<link rel="stylesheet" href="style.css">
+<script src="script.js" defer></script>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    FIRONIC <span>BROWSER</span><sup class="version">V1</sup>
+  </div>
+  <button class="header-button" onclick="showSettings()">⚙</button>
+</header>
+
+<main>
+<div id="homeView">
+  <div class="search">
+    <input id="searchInput" placeholder="Search DuckDuckGo or enter website..." autocomplete="off">
+    <button onclick="search()">GO</button>
+  </div>
+
+  <div class="home" id="home">
+    <div class="brand">FIRONIC <span>BROWSER</span></div>
+    <div class="subtitle">Your web. Your way.</div>
+    <div class="hold-hint">HOLD FOR 3 SECONDS TO CHANGE WALLPAPER</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">QUICK ACCESS</div>
+    <div class="shortcuts">
+      <a class="shortcut" href="https://youtube.com" target="_blank" rel="noopener"><b class="youtube-icon">▶</b><small>YouTube</small></a>
+      <a class="shortcut" href="https://tiktok.com" target="_blank" rel="noopener"><b>♪</b><small>TikTok</small></a>
+      <a class="shortcut" href="https://discord.com/app" target="_blank" rel="noopener"><b class="discord-icon">◉</b><small>Discord</small></a>
+      <a class="shortcut" href="https://roblox.com" target="_blank" rel="noopener"><b>◇</b><small>Roblox</small></a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-heading">
+      BOOKMARKS
+      <button onclick="addBookmark()">+ Add</button>
+    </div>
+    <div class="bookmarks" id="bookmarks">
+      <span class="empty-bookmarks">No bookmarks yet.</span>
+    </div>
+  </div>
+</div>
+
+<div id="browserView">
+  <div class="browser-toolbar">
+    <button onclick="goHome()">⌂</button>
+    <button onclick="reloadPage()">↻</button>
+    <span id="currentAddress"></span>
+  </div>
+
+  <iframe class="website-frame" id="websiteFrame" title="Fironic website viewer"
+    sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+
+  <div class="trouble" id="trouble">
+    <h2>Trouble displaying data</h2>
+    <p>This website doesn't allow Fironic Browser to display it here.</p>
+    <button onclick="openExternal()">Open website externally</button>
+    <button class="secondary" onclick="goHome()">Return to Fironic</button>
+  </div>
+</div>
+</main>
+
+<div class="overlay" id="wallDialog">
+  <div class="dialog">
+    <h3>Change wallpaper?</h3>
+    <p>Would you like to choose a new wallpaper?</p>
+    <button onclick="showSources()">Yes</button>
+    <button class="secondary" onclick="closeDialogs()">No</button>
+  </div>
+</div>
+
+<div class="overlay" id="sourceDialog">
+  <div class="dialog">
+    <h3>Choose source</h3>
+    <button onclick="pickMain()">Main — Device files</button>
+    <button onclick="pickFB()">FB — Fironic Browser files</button>
+    <button class="secondary" onclick="closeDialogs()">Cancel</button>
+  </div>
+</div>
+
+<div class="overlay" id="fbDialog">
+  <div class="dialog">
+    <h3>Fironic files</h3>
+    <div id="fbFiles"></div>
+    <button class="secondary" onclick="closeDialogs()">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="settingsDialog">
+  <div class="dialog">
+    <h3>Fironic settings</h3>
+    <button onclick="resetWallpaper()">Reset wallpaper</button>
+    <button onclick="clearBookmarks()">Clear bookmarks</button>
+    <button class="secondary" onclick="closeDialogs()">Close</button>
+  </div>
+</div>
+
+<input id="wallpaperPicker" type="file" accept="image/*" hidden>
+
+</body>
+</html>

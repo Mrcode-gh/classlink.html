@@ -1,0 +1,390 @@
+/* FIRONIC BROWSER V1 */
+
+let lastURL = "";
+let fallbackTimer = null;
+let db;
+let wallpaperURL = null;
+let holdTimer;
+
+/* SEARCH */
+
+function normalizeURL(value) {
+  if (/^https?:\/\//i.test(value)) return value;
+
+  if (/^[^\s]+\.[a-z]{2,}(\/.*)?$/i.test(value)) {
+    return "https://" + value;
+  }
+
+  return "https://duckduckgo.com/?q=" +
+    encodeURIComponent(value);
+}
+
+function search() {
+  const value = document.getElementById("searchInput").value.trim();
+  if (value) loadWebsite(normalizeURL(value));
+}
+
+document.getElementById("searchInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") search();
+});
+
+
+/* WEBSITE VIEW */
+
+function loadWebsite(url) {
+  try {
+    const parsed = new URL(url);
+
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error("Invalid website protocol");
+    }
+
+    lastURL = parsed.href;
+
+    document.getElementById("homeView").style.display = "none";
+    document.getElementById("browserView").style.display = "block";
+    document.getElementById("currentAddress").textContent = parsed.hostname;
+    document.getElementById("trouble").style.display = "none";
+
+    const frame = document.getElementById("websiteFrame");
+    frame.style.display = "block";
+    frame.src = lastURL;
+
+    clearTimeout(fallbackTimer);
+
+    fallbackTimer = setTimeout(() => {
+      if (lastURL === parsed.href) showTrouble();
+    }, 9000);
+
+  } catch (error) {
+    alert("Please enter a valid website.");
+  }
+}
+
+function showTrouble() {
+  document.getElementById("websiteFrame").style.display = "none";
+  document.getElementById("trouble").style.display = "block";
+}
+
+function openExternal() {
+  if (lastURL) {
+    window.open(lastURL, "_blank", "noopener");
+  }
+}
+
+function reloadPage() {
+  if (!lastURL) return;
+
+  clearTimeout(fallbackTimer);
+  document.getElementById("trouble").style.display = "none";
+
+  const frame = document.getElementById("websiteFrame");
+  frame.style.display = "block";
+  frame.src = lastURL;
+
+  const urlBeingLoaded = lastURL;
+
+  fallbackTimer = setTimeout(() => {
+    if (lastURL === urlBeingLoaded) showTrouble();
+  }, 9000);
+}
+
+function goHome() {
+  clearTimeout(fallbackTimer);
+  lastURL = "";
+
+  document.getElementById("websiteFrame").src = "about:blank";
+  document.getElementById("browserView").style.display = "none";
+  document.getElementById("homeView").style.display = "block";
+}
+
+
+/* LONG PRESS */
+
+const home = document.getElementById("home");
+
+function startHold() {
+  clearTimeout(holdTimer);
+
+  holdTimer = setTimeout(() => {
+    if (navigator.vibrate) navigator.vibrate(40);
+
+    document.getElementById("wallDialog").style.display = "flex";
+  }, 3000);
+}
+
+function stopHold() {
+  clearTimeout(holdTimer);
+}
+
+home.addEventListener("touchstart", startHold, {passive:true});
+home.addEventListener("touchend", stopHold);
+home.addEventListener("touchcancel", stopHold);
+home.addEventListener("touchmove", stopHold);
+home.addEventListener("mousedown", startHold);
+home.addEventListener("mouseup", stopHold);
+home.addEventListener("mouseleave", stopHold);
+
+
+/* WALLPAPER STORAGE */
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("FironicV1", 1);
+
+    request.onupgradeneeded = e => {
+      const database = e.target.result;
+
+      if (!database.objectStoreNames.contains("images")) {
+        database.createObjectStore("images", {
+          keyPath:"id",
+          autoIncrement:true
+        });
+      }
+    };
+
+    request.onsuccess = e => {
+      db = e.target.result;
+      resolve(db);
+    };
+
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function saveImage(file) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("images", "readwrite");
+
+    const request = tx.objectStore("images").add({
+      name:file.name,
+      image:file
+    });
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getImages() {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("images", "readonly")
+      .objectStore("images").getAll();
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function applyWallpaper(file, id = null) {
+  if (wallpaperURL) URL.revokeObjectURL(wallpaperURL);
+
+  wallpaperURL = URL.createObjectURL(file);
+
+  document.body.style.backgroundImage =
+    `linear-gradient(#0008,#0009),url("${wallpaperURL}")`;
+
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+  document.body.style.backgroundAttachment = "fixed";
+
+  if (id !== null) {
+    localStorage.setItem("fironicWallpaperId", String(id));
+  }
+}
+
+async function restoreWallpaper() {
+  const savedId = Number(localStorage.getItem("fironicWallpaperId"));
+  if (!savedId || !db) return;
+
+  const files = await getImages();
+  const match = files.find(file => file.id === savedId);
+
+  if (match) applyWallpaper(match.image, match.id);
+}
+
+function showSources() {
+  closeDialogs();
+  document.getElementById("sourceDialog").style.display = "flex";
+}
+
+function pickMain() {
+  closeDialogs();
+  document.getElementById("wallpaperPicker").click();
+}
+
+async function pickFB() {
+  closeDialogs();
+
+  const container = document.getElementById("fbFiles");
+  container.replaceChildren();
+
+  try {
+    const files = await getImages();
+
+    if (!files.length) {
+      container.textContent = "No saved images yet.";
+    }
+
+    files.forEach(file => {
+      const button = document.createElement("button");
+      button.textContent = file.name;
+
+      button.onclick = () => {
+        applyWallpaper(file.image, file.id);
+        closeDialogs();
+      };
+
+      container.appendChild(button);
+    });
+
+    document.getElementById("fbDialog").style.display = "flex";
+
+  } catch (error) {
+    alert("Fironic files could not be opened.");
+  }
+}
+
+document.getElementById("wallpaperPicker").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const id = await saveImage(file);
+    applyWallpaper(file, id);
+
+  } catch (error) {
+    alert("Could not save wallpaper. Check storage space.");
+  }
+
+  e.target.value = "";
+});
+
+function resetWallpaper() {
+  document.body.style.backgroundImage = "none";
+  localStorage.removeItem("fironicWallpaperId");
+
+  if (wallpaperURL) URL.revokeObjectURL(wallpaperURL);
+
+  wallpaperURL = null;
+  closeDialogs();
+}
+
+
+/* BOOKMARKS */
+
+function getBookmarks() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem("fironicBookmarks") || "[]"
+    );
+
+    return Array.isArray(saved) ? saved : [];
+
+  } catch {
+    return [];
+  }
+}
+
+function renderBookmarks() {
+  const container = document.getElementById("bookmarks");
+  const items = getBookmarks();
+
+  container.replaceChildren();
+
+  if (!items.length) {
+    const empty = document.createElement("span");
+    empty.className = "empty-bookmarks";
+    empty.textContent = "No bookmarks yet.";
+
+    container.appendChild(empty);
+    return;
+  }
+
+  items.forEach(item => {
+    const link = document.createElement("a");
+
+    link.href = item.url;
+    link.textContent = item.name;
+    link.target = "_blank";
+    link.rel = "noopener";
+
+    container.appendChild(link);
+  });
+}
+
+function addBookmark() {
+  const value = prompt("Website address:");
+  if (!value) return;
+
+  let url;
+
+  try {
+    url = new URL(normalizeURL(value));
+  } catch (error) {
+    alert("Invalid website address.");
+    return;
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    alert("Only website URLs are supported.");
+    return;
+  }
+
+  const name = prompt("Bookmark name:");
+  if (!name || !name.trim()) return;
+
+  const items = getBookmarks();
+
+  items.push({
+    name:name.trim(),
+    url:url.href
+  });
+
+  localStorage.setItem(
+    "fironicBookmarks",
+    JSON.stringify(items)
+  );
+
+  renderBookmarks();
+}
+
+function clearBookmarks() {
+  if (!confirm("Clear all bookmarks?")) return;
+
+  localStorage.removeItem("fironicBookmarks");
+
+  renderBookmarks();
+  closeDialogs();
+}
+
+
+/* SETTINGS */
+
+function showSettings() {
+  closeDialogs();
+  document.getElementById("settingsDialog").style.display = "flex";
+}
+
+function closeDialogs() {
+  document.querySelectorAll(".overlay").forEach(el => {
+    el.style.display = "none";
+  });
+}
+
+
+/* START */
+
+async function initialize() {
+  renderBookmarks();
+
+  try {
+    await openDB();
+    await restoreWallpaper();
+
+  } catch (error) {
+    console.warn("Fironic storage unavailable:", error);
+  }
+}
+
+initialize();
